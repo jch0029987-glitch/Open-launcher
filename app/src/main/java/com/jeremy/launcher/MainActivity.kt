@@ -2,13 +2,13 @@ package com.jeremy.launcher
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -20,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -43,17 +45,19 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             var updateStatus by remember { mutableStateOf("TV Launcher") }
             var appsList by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
+            
+            // Wallpaper Engine Placeholder State (Supports dynamic URL or local gradient fallback)
+            var wallpaperUrl by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
 
-            // Load installed apps
+            // Load installed apps and check wallpaper/updates
             LaunchedEffect(Unit) {
                 withContext(Dispatchers.IO) {
                     appsList = getLauncherApps(context)
                 }
                 
-                // Check updates in background
                 scope.launch {
-                    val currentVersionCode = 1 // Match your version code
+                    val currentVersionCode = 1
                     val updateInfo = checkForUpdates(currentVersionCode)
                     if (updateInfo != null) {
                         updateStatus = "Updating to v${updateInfo.versionName}..."
@@ -65,45 +69,51 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFF121212)
+                    color = Color.Transparent
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp)
-                    ) {
-                        // Header / Status Banner
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Apps",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = Color.White
-                            )
-                            Text(
-                                text = updateStatus,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray
-                            )
-                        }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Wallpaper Engine Layer (Background Placeholder)
+                        WallpaperEngineBackground(wallpaperUrl = wallpaperUrl)
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // App Grid for D-Pad Navigation
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(4),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.fillMaxSize()
+                        // Main Launcher UI Layout
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(36.dp)
                         ) {
-                            items(appsList) { app ->
-                                AppCard(app = app) {
-                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
-                                    if (launchIntent != null) {
-                                        context.startActivity(launchIntent)
+                            // Header Banner
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Applications",
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = Color.White
+                                 )
+                                Text(
+                                    text = updateStatus,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.LightGray
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(28.dp))
+
+                            // D-Pad Navigable App Grid
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(5),
+                                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                verticalArrangement = Arrangement.spacedBy(20.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(appsList) { app ->
+                                    AppCard(app = app) {
+                                        val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
+                                        if (launchIntent != null) {
+                                            context.startActivity(launchIntent)
+                                        }
                                     }
                                 }
                             }
@@ -122,36 +132,54 @@ data class AppInfo(
 )
 
 @Composable
+fun WallpaperEngineBackground(wallpaperUrl: String?) {
+    // Placeholder logic: Falls back to a rich dark gradient. 
+    // Extend this later to load images via Coil/Glide if wallpaperUrl is provided.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF1F1C2C), Color(0xFF928DAB), Color(0xFF121212))
+                )
+            )
+    )
+}
+
+@Composable
 fun AppCard(app: AppInfo, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val borderColor = if (isFocused) Color.White else Color.Transparent
-    val backgroundColor = if (isFocused) Color(0xFF2C2C2C) else Color(0xFF1E1E1E)
+    val borderColor = if (isFocused) Color.Cyan else Color.Transparent
+    val backgroundColor = if (isFocused) Color(0xCC3A3A3C) else Color(0x991E1E1E)
+    val scale = if (isFocused) 1.05f else 1.0f
 
     Box(
         modifier = Modifier
-            .size(140.dp)
+            .size(130.dp)
             .focusable()
             .onFocusChanged { isFocused = it.isFocused }
-            .border(2.dp, borderColor, MaterialTheme.shapes.medium)
-            .background(backgroundColor, MaterialTheme.shapes.medium)
-            .padding(16.dp),
+            .border(3.dp, borderColor, MaterialTheme.shapes.medium)
+            .clip(MaterialTheme.shapes.medium)
+            .background(backgroundColor)
+            .clickable { onClick() }
+            .padding(12.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            val bitmap = remember(app.icon) { app.icon.toBitmap(96, 96).asImageBitmap() }
+            val bitmap = remember(app.icon) { app.icon.toBitmap(80, 80).asImageBitmap() }
             Image(
                 bitmap = bitmap,
                 contentDescription = app.label,
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(60.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = app.label,
                 color = Color.White,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 maxLines = 1
             )
         }
