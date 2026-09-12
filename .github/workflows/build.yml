@@ -1,0 +1,45 @@
+name: Debug TV Launcher
+on: [workflow_dispatch]
+
+jobs:
+  stabilize-launcher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Install Android ADB Tools
+        run: sudo apt-get update && sudo apt-get install -y android-tools-adb
+
+      - name: Deploy and Monitor Stability
+        env:
+          TV_IP: ${{ secrets.TV_IP }}
+        run: |
+          adb connect ${{ env.TV_IP }}:5555
+          adb devices
+          
+          # Force stop any lingering broken instances
+          adb shell am force-stop com.yourpackage.launcher
+          
+          # Install the updated APK
+          adb install -r app/build/outputs/apk/debug/app-debug.apk
+          
+          # Launch it explicitly to check for immediate crashes
+          adb shell am start -n "com.yourpackage.launcher/.MainActivity"
+          
+          # Dump recent logs to check stability
+          adb logcat -d -s "AndroidRuntime:E" "YourAppTag:D"
