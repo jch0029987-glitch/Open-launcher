@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Launcher" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+    <style name="Theme.Launcher" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Make background transparent so your Wallpaper Engine background layer shows cleanly -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
     </style>
 </resources>
