@@ -1,10 +1,18 @@
-name: Build and Deploy TV Launcher
+name: Build and Release TV Launcher
 
 on:
   workflow_dispatch:
+    inputs:
+      notes:
+        description: 'Release notes'
+        required: false
+        default: 'Automatic build via workflow dispatch'
+
+permissions:
+  contents: write
 
 jobs:
-  build-and-deploy:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -43,20 +51,21 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: ./gradlew assembleRelease
 
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v2
+      - name: Create GitHub Release and Upload APK
+        uses: softprops/action-gh-release@v2
         with:
-          authkey: ${{ secrets.TS_AUTHKEY }}
-
-      - name: Install Android ADB Tools
-        run: sudo apt-get update && sudo apt-get install -y android-tools-adb
-
-      - name: Deploy to Android TV
+          tag_name: v1.${{ github.run_number }}
+          files: app/build/outputs/apk/release/app-release.apk
+          name: "TV Launcher v1.${{ github.run_number }}"
+          body: ${{ github.event.inputs.notes }}
         env:
-          TV_IP: ${{ secrets.TV_IP }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Version Manifest
         run: |
-          adb connect ${{ env.TV_IP }}:5555
-          adb devices
-          adb shell am force-stop com.jeremy.launcher
-          adb install -r app/build/outputs/apk/release/app-release.apk
-          adb shell am start -n "com.jeremy.launcher/.MainActivity"
+          echo "{\"versionCode\": ${{ github.run_number }}, \"versionName\": \"1.${{ github.run_number }}\", \"downloadUrl\": \"https://github.com/jch0029987-glitch/Open-launcher/releases/download/v1.${{ github.run_number }}/app-release.apk\"}" > version.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.json
+          git commit -m "Auto-update version manifest to v1.${{ github.run_number }}"
+          git push
