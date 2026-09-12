@@ -186,13 +186,9 @@ fun SettingsScreen(onBack: () -> Unit, onCheckUpdates: () -> Unit) {
             onCheckUpdates()
         }
 
-        SettingsCard(title = "Wallpaper Engine", subtitle = "Current Mode: Default Gradient Background") {
-            // Future configuration action
-        }
+        SettingsCard(title = "Wallpaper Engine", subtitle = "Current Mode: Default Gradient Background") {}
 
-        SettingsCard(title = "About Open Launcher", subtitle = "Version 1.0 (API 34 Leanback)") {
-            // Display info
-        }
+        SettingsCard(title = "About Open Launcher", subtitle = "Version 1.0 (API 34 Leanback)") {}
 
         Spacer(modifier = Modifier.height(10.dp))
 
