@@ -45,12 +45,9 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             var updateStatus by remember { mutableStateOf("TV Launcher") }
             var appsList by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
-            
-            // Wallpaper Engine Placeholder State (Supports dynamic URL or local gradient fallback)
             var wallpaperUrl by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
 
-            // Load installed apps and check wallpaper/updates
             LaunchedEffect(Unit) {
                 withContext(Dispatchers.IO) {
                     appsList = getLauncherApps(context)
@@ -72,16 +69,13 @@ class MainActivity : ComponentActivity() {
                     color = Color.Transparent
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        // Wallpaper Engine Layer (Background Placeholder)
                         WallpaperEngineBackground(wallpaperUrl = wallpaperUrl)
 
-                        // Main Launcher UI Layout
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(36.dp)
                         ) {
-                            // Header Banner
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -91,7 +85,7 @@ class MainActivity : ComponentActivity() {
                                     text = "Applications",
                                     style = MaterialTheme.typography.headlineLarge,
                                     color = Color.White
-                                 )
+                                )
                                 Text(
                                     text = updateStatus,
                                     style = MaterialTheme.typography.bodyMedium,
@@ -101,7 +95,6 @@ class MainActivity : ComponentActivity() {
 
                             Spacer(modifier = Modifier.height(28.dp))
 
-                            // D-Pad Navigable App Grid
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(5),
                                 horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -133,8 +126,6 @@ data class AppInfo(
 
 @Composable
 fun WallpaperEngineBackground(wallpaperUrl: String?) {
-    // Placeholder logic: Falls back to a rich dark gradient. 
-    // Extend this later to load images via Coil/Glide if wallpaperUrl is provided.
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -151,7 +142,6 @@ fun AppCard(app: AppInfo, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     val borderColor = if (isFocused) Color.Cyan else Color.Transparent
     val backgroundColor = if (isFocused) Color(0xCC3A3A3C) else Color(0x991E1E1E)
-    val scale = if (isFocused) 1.05f else 1.0f
 
     Box(
         modifier = Modifier
