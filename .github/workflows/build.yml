@@ -24,6 +24,9 @@ jobs:
         with:
           gradle-version: '9.7.1'
 
+      - name: Generate Wrapper
+        run: gradle wrapper --gradle-version 9.7.1
+
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
