@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -129,9 +130,20 @@ fun HomeScreen(
 
     // Grab focus into the grid as soon as apps are loaded, so the D-pad
     // drives item-to-item navigation instead of falling through to the window.
+    // The first grid item may not be attached to the focus tree yet on the
+    // first attempt (LazyVerticalGrid subcomposes items during measurement,
+    // which happens after this effect could first run), so retry briefly.
     LaunchedEffect(appsList) {
-        if (appsList.isNotEmpty()) {
-            firstItemFocusRequester.requestFocus()
+        if (appsList.isEmpty()) return@LaunchedEffect
+        var attempts = 0
+        while (attempts < 10) {
+            try {
+                firstItemFocusRequester.requestFocus()
+                return@LaunchedEffect
+            } catch (e: IllegalStateException) {
+                attempts++
+                delay(50)
+            }
         }
     }
 
