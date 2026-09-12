@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.jeremy.launcher"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.jeremy.launcher"
