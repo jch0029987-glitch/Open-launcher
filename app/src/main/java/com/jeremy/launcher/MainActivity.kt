@@ -225,4 +225,147 @@ fun SettingsButton(onClick: () -> Unit) {
         modifier = Modifier
             .focusable()
             .onFocusChanged { isFocused = it.isFocused }
-            .border(2
+            .border(2.dp, borderColor, MaterialTheme.shapes.small)
+            .clip(MaterialTheme.shapes.small)
+            .background(background)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Text(text = "Settings", color = Color.White, fontSize = 14.sp)
+    }
+}
+
+@Composable
+fun SettingsCard(title: String, subtitle: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val borderColor = if (isFocused) Color.Cyan else Color.Transparent
+    val background = if (isFocused) Color(0xCC3A3A3C) else Color(0x991E1E1E)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp)
+            .focusable()
+            .onFocusChanged { isFocused = it.isFocused }
+            .border(2.dp, borderColor, MaterialTheme.shapes.medium)
+            .clip(MaterialTheme.shapes.medium)
+            .background(background)
+            .clickable { onClick() }
+            .padding(20.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Column {
+            Text(text = title, color = Color.White, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = subtitle, color = Color.LightGray, fontSize = 12.sp)
+        }
+    }
+}
+
+data class AppInfo(
+    val label: String,
+    val packageName: String,
+    val icon: android.graphics.drawable.Drawable
+)
+
+@Composable
+fun WallpaperEngineBackground(wallpaperUrl: String?) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF1F1C2C), Color(0xFF928DAB), Color(0xFF121212))
+                )
+            )
+    )
+}
+
+@Composable
+fun AppCard(app: AppInfo, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val borderColor = if (isFocused) Color.Cyan else Color.Transparent
+    val backgroundColor = if (isFocused) Color(0xCC3A3A3C) else Color(0x991E1E1E)
+
+    Box(
+        modifier = modifier
+            .size(130.dp)
+            .focusable()
+            .onFocusChanged { isFocused = it.isFocused }
+            .border(3.dp, borderColor, MaterialTheme.shapes.medium)
+            .clip(MaterialTheme.shapes.medium)
+            .background(backgroundColor)
+            .clickable { onClick() }
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            val bitmap = remember(app.icon) { app.icon.toBitmap(80, 80).asImageBitmap() }
+            Image(
+                bitmap = bitmap,
+                contentDescription = app.label,
+                modifier = Modifier.size(60.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = app.label,
+                color = Color.White,
+                fontSize = 13.sp,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+fun getLauncherApps(context: Context): List<AppInfo> {
+    val pm = context.packageManager
+    val intent = Intent(Intent.ACTION_MAIN, null).apply {
+        addCategory(Intent.CATEGORY_LAUNCHER)
+    }
+    val resolveInfos = pm.queryIntentActivities(intent, 0)
+    return resolveInfos.map {
+        AppInfo(
+            label = it.loadLabel(pm).toString(),
+            packageName = it.activityInfo.packageName,
+            icon = it.loadIcon(pm)
+        )
+    }.sortedBy { it.label }
+}
+
+data class UpdateInfo(val versionName: String, val downloadUrl: String)
+
+suspend fun checkForUpdates(currentVersionCode: Int): UpdateInfo? = withContext(Dispatchers.IO) {
+    try {
+        val jsonString = URL("https://raw.githubusercontent.com/jch0029987-glitch/Open-launcher/main/version.json").readText()
+        val json = JSONObject(jsonString)
+        val remoteVersionCode = json.getInt("versionCode")
+        if (remoteVersionCode > currentVersionCode) {
+            UpdateInfo(json.getString("versionName"), json.getString("downloadUrl"))
+        } else null
+    } catch (e: Exception) {
+        null
+    }
+}
+
+suspend fun downloadAndInstallUpdate(context: Context, downloadUrl: String): Boolean = withContext(Dispatchers.IO) {
+    try {
+        val apkFile = File(context.cacheDir, "update.apk")
+        if (apkFile.exists()) apkFile.delete()
+        URL(downloadUrl).openStream().use { input ->
+            apkFile.outputStream().use { output -> input.copyTo(output) }
+        }
+        val apkUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        withContext(Dispatchers.Main) { context.startActivity(intent) }
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
