@@ -19,7 +19,7 @@ jobs:
       - name: Install Gradle & Generate Wrapper
         run: |
           sudo apt-get update && sudo apt-get install -y gradle
-          gradle wrapper --gradle-version 8.8
+          gradle wrapper --gradle-version  9.7.1
           chmod +x gradlew
 
       - name: Decode Keystore
