@@ -37,12 +37,17 @@ import org.json.JSONObject
 import java.io.File
 import java.net.URL
 
+enum class AppScreen {
+    HOME, SETTINGS
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         setContent {
             val context = LocalContext.current
+            var currentScreen by remember { mutableStateOf(AppScreen.HOME) }
             var updateStatus by remember { mutableStateOf("TV Launcher") }
             var appsList by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
             var wallpaperUrl by remember { mutableStateOf<String?>(null) }
@@ -71,49 +76,175 @@ class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.fillMaxSize()) {
                         WallpaperEngineBackground(wallpaperUrl = wallpaperUrl)
 
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(36.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Applications",
-                                    style = MaterialTheme.typography.headlineLarge,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = updateStatus,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.LightGray
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(28.dp))
-
-                            TvLazyVerticalGrid(
-                                columns = TvGridCells.Fixed(5),
-                                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                                verticalArrangement = Arrangement.spacedBy(20.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                items(appsList) { app ->
-                                    AppCard(app = app) {
-                                        val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
+                        when (currentScreen) {
+                            AppScreen.HOME -> {
+                                HomeScreen(
+                                    updateStatus = updateStatus,
+                                    appsList = appsList,
+                                    onOpenSettings = { currentScreen = AppScreen.SETTINGS },
+                                    onAppClick = { packageName ->
+                                        val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
                                         if (launchIntent != null) {
                                             context.startActivity(launchIntent)
                                         }
                                     }
-                                }
+                                )
+                            }
+                            AppScreen.SETTINGS -> {
+                                SettingsScreen(
+                                    onBack = { currentScreen = AppScreen.HOME },
+                                    onCheckUpdates = {
+                                        scope.launch {
+                                            updateStatus = "Checking for updates..."
+                                            val updateInfo = checkForUpdates(1)
+                                            if (updateInfo != null) {
+                                                updateStatus = "Updating to v${updateInfo.versionName}..."
+                                                downloadAndInstallUpdate(context, updateInfo.downloadUrl)
+                                            } else {
+                                                updateStatus = "App is up to date!"
+                                            }
+                                        }
+                                    }
+                                )
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun HomeScreen(
+    updateStatus: String,
+    appsList: List<AppInfo>,
+    onOpenSettings: () -> Unit,
+    onAppClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(36.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Applications",
+                style = MaterialTheme.typography.headlineLarge,
+                color = Color.White
+            )
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = updateStatus,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.LightGray
+                )
+                Spacer(modifier = Modifier.width(20.dp))
+                SettingsButton(onClick = onOpenSettings)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        TvLazyVerticalGrid(
+            columns = TvGridCells.Fixed(5),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(appsList) { app ->
+                AppCard(app = app) {
+                    onAppClick(app.packageName)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsScreen(onBack: () -> Unit, onCheckUpdates: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(50.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        Text(
+            text = "Settings",
+            style = MaterialTheme.typography.headlineLarge,
+            color = Color.White
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        SettingsCard(title = "Check for Updates Now", subtitle = "Manually query GitHub repository for new APK releases") {
+            onCheckUpdates()
+        }
+
+        SettingsCard(title = "Wallpaper Engine", subtitle = "Current Mode: Default Gradient Background") {
+            // Future toggle or configuration action
+        }
+
+        SettingsCard(title = "About Open Launcher", subtitle = "Version 1.0 (API 34 Leanback)") {
+            // Display info or license
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        SettingsCard(title = "Back to Home", subtitle = "Return to app launcher grid") {
+            onBack()
+        }
+    }
+}
+
+@Composable
+fun SettingsButton(onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val borderColor = if (isFocused) Color.Cyan else Color.Transparent
+    val background = if (isFocused) Color(0xCC3A3A3C) else Color(0x991E1E1E)
+
+    Box(
+        modifier = Modifier
+            .focusable()
+            .onFocusChanged { isFocused = it.isFocused }
+            .border(2.dp, borderColor, MaterialTheme.shapes.small)
+            .clip(MaterialTheme.shapes.small)
+            .background(background)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Text(text = "Settings", color = Color.White, fontSize = 14.sp)
+    }
+}
+
+@Composable
+fun SettingsCard(title: String, subtitle: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val borderColor = if (isFocused) Color.Cyan else Color.Transparent
+    val background = if (isFocused) Color(0xCC3A3A3C) else Color(0x991E1E1E)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp)
+            .focusable()
+            .onFocusChanged { isFocused = it.isFocused }
+            .border(2.dp, borderColor, MaterialTheme.shapes.medium)
+            .clip(MaterialTheme.shapes.medium)
+            .background(background)
+            .clickable { onClick() }
+            .padding(20.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Column {
+            Text(text = title, color = Color.White, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = subtitle, color = Color.LightGray, fontSize = 12.sp)
         }
     }
 }
