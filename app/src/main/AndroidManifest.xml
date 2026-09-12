@@ -5,7 +5,7 @@
         android:allowBackup="true"
         android:label="Launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+        android:theme="@style/Theme.Launcher">
 
         <activity
             android:name=".MainActivity"
