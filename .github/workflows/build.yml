@@ -16,6 +16,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Install Gradle & Generate Wrapper
+        run: |
+          sudo apt-get update && sudo apt-get install -y gradle
+          gradle wrapper --gradle-version 8.8
+          chmod +x gradlew
+
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -42,12 +48,6 @@ jobs:
         run: |
           adb connect ${{ env.TV_IP }}:5555
           adb devices
-          
-          # Force stop any lingering instances
           adb shell am force-stop com.jeremy.launcher
-          
-          # Install the signed release APK
           adb install -r app/build/outputs/apk/release/app-release.apk
-          
-          # Launch the launcher activity without setting it as home/default
           adb shell am start -n "com.jeremy.launcher/.MainActivity"
