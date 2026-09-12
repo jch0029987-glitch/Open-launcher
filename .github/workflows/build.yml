@@ -25,6 +25,12 @@ jobs:
           gradle-version: '9.7.1'
           cache-disabled: true
 
+      - name: Bootstrap Gradle Wrapper
+        run: |
+          sudo apt-get update && sudo apt-get install -y gradle
+          gradle wrapper --gradle-version 9.7.1
+          chmod +x gradlew
+
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
