@@ -11,7 +11,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.toBitmap
 import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.itemsIndexed
 import kotlinx.coroutines.Dispatchers
@@ -205,7 +205,7 @@ fun HomeScreen(
         // foundation LazyVerticalGrid — the plain grid doesn't reliably carry D-pad focus
         // across rows/into not-yet-composed items. This one is built for remote navigation.
         TvLazyVerticalGrid(
-            columns = GridCells.Fixed(remoteConfig.gridColumnCount),
+            columns = TvGridCells.Fixed(remoteConfig.gridColumnCount),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
             pivotOffsets = PivotOffsets(parentFraction = 0.3f),
