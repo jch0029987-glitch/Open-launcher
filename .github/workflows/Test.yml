@@ -1,8 +1,28 @@
-name: Test Tailscale Connection
-on: [workflow_dispatch]
+name: ADB over Tailscale
+
+on:
+  workflow_dispatch:
+    inputs:
+      pair_port:
+        description: 'Pairing port shown on TV (Wireless debugging pairing screen)'
+        required: false
+      pair_code:
+        description: '6-digit pairing code shown on TV (only needed if not yet paired)'
+        required: false
+      debug_port:
+        description: 'Debugging port shown on TV (Wireless debugging main screen)'
+        required: true
+      logcat_filter:
+        description: 'grep filter for logcat'
+        required: false
+        default: 'AccessibilityManagerService|LauncherAccessibilityService'
+      logcat_seconds:
+        description: 'How many seconds to capture logcat'
+        required: false
+        default: '30'
 
 jobs:
-  ping-tv:
+  adb-debug:
     runs-on: ubuntu-latest
     steps:
       - name: Connect to Tailscale
@@ -10,12 +30,40 @@ jobs:
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
 
-      - name: Verify Tailscale Status
+      - name: Verify Tailscale status
         run: tailscale status
 
-      - name: Ping Android TV
+      - name: Check TCP reachability
         env:
           TV_IP: ${{ secrets.TV_IP }}
         run: |
-          echo "Pinging Android TV at ${TV_IP}..."
-          ping -c 4 "${TV_IP}"
+          nc -zv -w 5 "${TV_IP}" "${{ inputs.debug_port }}" \
+            || echo "Debug port ${{ inputs.debug_port }} not reachable yet"
+
+      - name: Install adb
+        run: sudo apt-get update && sudo apt-get install -y android-tools-adb
+
+      - name: Pair (only if pair_port and pair_code given)
+        if: ${{ inputs.pair_port != '' && inputs.pair_code != '' }}
+        env:
+          TV_IP: ${{ secrets.TV_IP }}
+        run: adb pair "${TV_IP}:${{ inputs.pair_port }}" "${{ inputs.pair_code }}"
+
+      - name: Connect
+        env:
+          TV_IP: ${{ secrets.TV_IP }}
+        run: |
+          adb connect "${TV_IP}:${{ inputs.debug_port }}"
+          adb devices -l
+
+      - name: Capture logcat
+        run: |
+          timeout "${{ inputs.logcat_seconds }}" adb logcat -d \
+            | grep -iE "${{ inputs.logcat_filter }}" > logcat.txt || true
+          cat logcat.txt
+
+      - name: Upload logcat artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: logcat
+          path: logcat.txt
