@@ -45,6 +45,12 @@ enum class AppScreen {
     HOME, SETTINGS
 }
 
+data class RemoteConfig(
+    val enableExperimentalDebugOverlay: Boolean,
+    val customHeaderTitle: String,
+    val gridColumnCount: Int
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +61,9 @@ class MainActivity : ComponentActivity() {
             var updateStatus by remember { mutableStateOf("TV Launcher") }
             var appsList by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
             var wallpaperUrl by remember { mutableStateOf<String?>(null) }
+            var remoteConfig by remember { 
+                mutableStateOf(RemoteConfig(enableExperimentalDebugOverlay = false, customHeaderTitle = "Applications", gridColumnCount = 5)) 
+            }
             val scope = rememberCoroutineScope()
 
             LaunchedEffect(Unit) {
@@ -63,6 +72,11 @@ class MainActivity : ComponentActivity() {
                 }
 
                 scope.launch {
+                    val fetchedConfig = fetchRemoteConfig()
+                    if (fetchedConfig != null) {
+                        remoteConfig = fetchedConfig
+                    }
+
                     val currentVersionCode = 1
                     val updateInfo = checkForUpdates(currentVersionCode)
                     if (updateInfo != null) {
@@ -85,6 +99,7 @@ class MainActivity : ComponentActivity() {
                                 HomeScreen(
                                     updateStatus = updateStatus,
                                     appsList = appsList,
+                                    remoteConfig = remoteConfig,
                                     onOpenSettings = { currentScreen = AppScreen.SETTINGS },
                                     onAppClick = { packageName ->
                                         val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -96,6 +111,7 @@ class MainActivity : ComponentActivity() {
                             }
                             AppScreen.SETTINGS -> {
                                 SettingsScreen(
+                                    remoteConfig = remoteConfig,
                                     onBack = { currentScreen = AppScreen.HOME },
                                     onCheckUpdates = {
                                         scope.launch {
@@ -123,6 +139,7 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen(
     updateStatus: String,
     appsList: List<AppInfo>,
+    remoteConfig: RemoteConfig,
     onOpenSettings: () -> Unit,
     onAppClick: (String) -> Unit
 ) {
@@ -155,13 +172,15 @@ fun HomeScreen(
         ) {
             Column {
                 Text(
-                    text = "Applications",
+                    text = remoteConfig.customHeaderTitle,
                     style = MaterialTheme.typography.headlineLarge,
                     color = Color.White
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 val focusedApp = appsList.getOrNull(focusedAppIndex)
-                val focusText = if (focusedApp != null) {
+                val focusText = if (remoteConfig.enableExperimentalDebugOverlay && focusedApp != null) {
+                    "DEBUG [Pkg: ${focusedApp.packageName}] (Item ${focusedAppIndex + 1}/${appsList.size})"
+                } else if (focusedApp != null) {
                     "Focused: [${focusedApp.label}] (Item ${focusedAppIndex + 1} of ${appsList.size})"
                 } else {
                     updateStatus
@@ -181,7 +200,7 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(28.dp))
 
         LazyVerticalGrid(
-            columns = GridCells.Fixed(5),
+            columns = GridCells.Fixed(remoteConfig.gridColumnCount),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier
@@ -205,7 +224,7 @@ fun HomeScreen(
 }
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onCheckUpdates: () -> Unit) {
+fun SettingsScreen(remoteConfig: RemoteConfig, onBack: () -> Unit, onCheckUpdates: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -224,7 +243,10 @@ fun SettingsScreen(onBack: () -> Unit, onCheckUpdates: () -> Unit) {
             onCheckUpdates()
         }
 
-        SettingsCard(title = "Wallpaper Engine", subtitle = "Current Mode: Default Gradient Background") {}
+        SettingsCard(
+            title = "Experimental Flags Status", 
+            subtitle = "Debug Overlay: ${if (remoteConfig.enableExperimentalDebugOverlay) "ENABLED" else "DISABLED"} | Columns: ${remoteConfig.gridColumnCount}"
+        ) {}
 
         SettingsCard(title = "About Open Launcher", subtitle = "Version 1.0 (API 34 Leanback)") {}
 
@@ -257,7 +279,7 @@ fun SettingsButton(onClick: () -> Unit) {
 }
 
 @Composable
-fun SettingsCard(title: String, subtitle: String, onClick: () -> Unit) {
+fun SettingsCard(title: String, subtitle: String, onClick: (() -> Unit)? = null) {
     var isFocused by remember { mutableStateOf(false) }
     val borderColor = if (isFocused) Color.Cyan else Color.Transparent
     val background = if (isFocused) Color(0xCC3A3A3C) else Color(0x991E1E1E)
@@ -271,7 +293,7 @@ fun SettingsCard(title: String, subtitle: String, onClick: () -> Unit) {
             .border(2.dp, borderColor, MaterialTheme.shapes.medium)
             .clip(MaterialTheme.shapes.medium)
             .background(background)
-            .clickable { onClick() }
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(20.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -362,6 +384,20 @@ fun getLauncherApps(context: Context): List<AppInfo> {
             icon = it.loadIcon(pm)
         )
     }.sortedBy { it.label }
+}
+
+suspend fun fetchRemoteConfig(): RemoteConfig? = withContext(Dispatchers.IO) {
+    try {
+        val jsonString = URL("https://raw.githubusercontent.com/jch0029987-glitch/Open-launcher/main/config.json").readText()
+        val json = JSONObject(jsonString)
+        RemoteConfig(
+            enableExperimentalDebugOverlay = json.optBoolean("enableExperimentalDebugOverlay", false),
+            customHeaderTitle = json.optString("customHeaderTitle", "Applications"),
+            gridColumnCount = json.optInt("gridColumnCount", 5)
+        )
+    } catch (e: Exception) {
+        null
+    }
 }
 
 data class UpdateInfo(val versionName: String, val downloadUrl: String)
