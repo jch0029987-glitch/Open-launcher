@@ -1,0 +1,7 @@
+{
+  "enableExperimentalDebugOverlay": true,
+  "customHeaderTitle": "Open Launcher (Experimental)",
+  "gridColumnCount": 5,
+  "enableDynamicWallpaper": false,
+  "announcementText": "Build channel: Experimental flags active via remote JSON."
+}
