@@ -127,12 +127,8 @@ fun HomeScreen(
     onAppClick: (String) -> Unit
 ) {
     val firstItemFocusRequester = remember { FocusRequester() }
+    var focusedAppIndex by remember { mutableStateOf(0) }
 
-    // Grab focus into the grid as soon as apps are loaded, so the D-pad
-    // drives item-to-item navigation instead of falling through to the window.
-    // The first grid item may not be attached to the focus tree yet on the
-    // first attempt (LazyVerticalGrid subcomposes items during measurement,
-    // which happens after this effect could first run), so retry briefly.
     LaunchedEffect(appsList) {
         if (appsList.isEmpty()) return@LaunchedEffect
         var attempts = 0
@@ -157,19 +153,27 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Applications",
-                style = MaterialTheme.typography.headlineLarge,
-                color = Color.White
-            )
+            Column {
+                Text(
+                    text = "Applications",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val focusedApp = appsList.getOrNull(focusedAppIndex)
+                val focusText = if (focusedApp != null) {
+                    "Focused: [${focusedApp.label}] (Item ${focusedAppIndex + 1} of ${appsList.size})"
+                } else {
+                    updateStatus
+                }
+                Text(
+                    text = focusText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Cyan
+                )
+            }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = updateStatus,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.LightGray
-                )
-                Spacer(modifier = Modifier.width(20.dp))
                 SettingsButton(onClick = onOpenSettings)
             }
         }
@@ -188,6 +192,11 @@ fun HomeScreen(
                 AppCard(
                     app = app,
                     modifier = if (index == 0) Modifier.focusRequester(firstItemFocusRequester) else Modifier,
+                    onFocusChanged = { isFocused ->
+                        if (isFocused) {
+                            focusedAppIndex = index
+                        }
+                    },
                     onClick = { onAppClick(app.packageName) }
                 )
             }
@@ -294,7 +303,12 @@ fun WallpaperEngineBackground(wallpaperUrl: String?) {
 }
 
 @Composable
-fun AppCard(app: AppInfo, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun AppCard(
+    app: AppInfo,
+    modifier: Modifier = Modifier,
+    onFocusChanged: (Boolean) -> Unit = {},
+    onClick: () -> Unit
+) {
     var isFocused by remember { mutableStateOf(false) }
     val borderColor = if (isFocused) Color.Cyan else Color.Transparent
     val backgroundColor = if (isFocused) Color(0xCC3A3A3C) else Color(0x991E1E1E)
@@ -303,7 +317,10 @@ fun AppCard(app: AppInfo, modifier: Modifier = Modifier, onClick: () -> Unit) {
         modifier = modifier
             .size(130.dp)
             .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged { state ->
+                isFocused = state.isFocused
+                onFocusChanged(state.isFocused)
+            }
             .border(3.dp, borderColor, MaterialTheme.shapes.medium)
             .clip(MaterialTheme.shapes.medium)
             .background(backgroundColor)
