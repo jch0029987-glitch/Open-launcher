@@ -66,6 +66,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
 // build.gradle (app module)
 implementation("androidx.tv:tv-foundation:1.0.0-alpha11")
-implementation("androidx.tv:tv-material:1.0.0-alpha11")
+implementation("androidx.tv:tv-material:1.0.1")
+
 
 }
