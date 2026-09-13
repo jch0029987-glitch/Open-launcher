@@ -64,5 +64,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("com.google.android.material:material:1.12.0")
+// build.gradle (app module)
+implementation("androidx.tv:tv-foundation:1.0.0-alpha11")
 
 }
