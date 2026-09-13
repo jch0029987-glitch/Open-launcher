@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       pair_port:
-        description: 'Pairing port shown on TV (Wireless debugging pairing screen)'
+        description: 'Pairing port shown on TV pairing screen (leave blank if already paired)'
         required: false
       pair_code:
-        description: '6-digit pairing code shown on TV (only needed if not yet paired)'
+        description: '6-digit pairing code shown on TV (leave blank if already paired)'
         required: false
       debug_port:
-        description: 'Debugging port shown on TV (Wireless debugging main screen)'
-        required: true
+        description: 'Debug port from TV main Wireless debugging screen (leave blank to auto-discover via mDNS)'
+        required: false
       logcat_filter:
-        description: 'grep filter for logcat'
+        description: 'grep -E filter for logcat'
         required: false
         default: 'AccessibilityManagerService|LauncherAccessibilityService'
       logcat_seconds:
@@ -33,15 +33,10 @@ jobs:
       - name: Verify Tailscale status
         run: tailscale status
 
-      - name: Check TCP reachability
-        env:
-          TV_IP: ${{ secrets.TV_IP }}
+      - name: Install adb and avahi-utils
         run: |
-          nc -zv -w 5 "${TV_IP}" "${{ inputs.debug_port }}" \
-            || echo "Debug port ${{ inputs.debug_port }} not reachable yet"
-
-      - name: Install adb
-        run: sudo apt-get update && sudo apt-get install -y android-tools-adb
+          sudo apt-get update
+          sudo apt-get install -y android-tools-adb avahi-utils
 
       - name: Pair (only if pair_port and pair_code given)
         if: ${{ inputs.pair_port != '' && inputs.pair_code != '' }}
@@ -49,20 +44,53 @@ jobs:
           TV_IP: ${{ secrets.TV_IP }}
         run: adb pair "${TV_IP}:${{ inputs.pair_port }}" "${{ inputs.pair_code }}"
 
-      - name: Connect
+      - name: Discover debug port via mDNS (if not supplied)
+        if: ${{ inputs.debug_port == '' }}
+        run: |
+          echo "Listening for _adb-tls-connect._tcp advertisement (10s)..."
+          timeout 10 avahi-browse -r -t _adb-tls-connect._tcp || true
+          echo "---"
+          echo "adb's own mdns view:"
+          adb mdns services || true
+
+      - name: Resolve debug port to use
+        id: resolve_port
+        env:
+          MANUAL_PORT: ${{ inputs.debug_port }}
+        run: |
+          if [ -n "$MANUAL_PORT" ]; then
+            echo "port=$MANUAL_PORT" >> "$GITHUB_OUTPUT"
+          else
+            echo "No manual port given — check the mDNS discovery step output above,"
+            echo "re-run with debug_port set explicitly if auto-discovery didn't find it."
+            echo "port=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check TCP reachability
+        if: ${{ steps.resolve_port.outputs.port != '' }}
         env:
           TV_IP: ${{ secrets.TV_IP }}
         run: |
-          adb connect "${TV_IP}:${{ inputs.debug_port }}"
+          nc -zv -w 5 "${TV_IP}" "${{ steps.resolve_port.outputs.port }}" \
+            || echo "Port ${{ steps.resolve_port.outputs.port }} not reachable"
+
+      - name: Connect
+        if: ${{ steps.resolve_port.outputs.port != '' }}
+        env:
+          TV_IP: ${{ secrets.TV_IP }}
+        run: |
+          adb connect "${TV_IP}:${{ steps.resolve_port.outputs.port }}"
           adb devices -l
 
       - name: Capture logcat
+        if: ${{ steps.resolve_port.outputs.port != '' }}
         run: |
           timeout "${{ inputs.logcat_seconds }}" adb logcat -d \
             | grep -iE "${{ inputs.logcat_filter }}" > logcat.txt || true
           cat logcat.txt
 
       - name: Upload logcat artifact
+        if: ${{ steps.resolve_port.outputs.port != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: logcat
