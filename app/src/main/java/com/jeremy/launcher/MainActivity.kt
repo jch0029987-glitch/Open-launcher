@@ -10,11 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,6 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.toBitmap
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.itemsIndexed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -64,8 +64,8 @@ class MainActivity : ComponentActivity() {
             var updateStatus by remember { mutableStateOf("TV Launcher") }
             var appsList by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
             var wallpaperUrl by remember { mutableStateOf<String?>(null) }
-            var remoteConfig by remember { 
-                mutableStateOf(RemoteConfig(false, "Applications", 5, "")) 
+            var remoteConfig by remember {
+                mutableStateOf(RemoteConfig(false, "Applications", 5, ""))
             }
             val scope = rememberCoroutineScope()
 
@@ -201,13 +201,15 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        LazyVerticalGrid(
+        // TvLazyVerticalGrid (androidx.tv:tv-foundation) instead of the plain Compose
+        // foundation LazyVerticalGrid — the plain grid doesn't reliably carry D-pad focus
+        // across rows/into not-yet-composed items. This one is built for remote navigation.
+        TvLazyVerticalGrid(
             columns = GridCells.Fixed(remoteConfig.gridColumnCount),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .focusGroup()
+            pivotOffsets = PivotOffsets(parentFraction = 0.3f),
+            modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(appsList, key = { _, app -> app.packageName }) { index, app ->
                 AppCard(
@@ -246,7 +248,7 @@ fun SettingsScreen(remoteConfig: RemoteConfig, onBack: () -> Unit, onCheckUpdate
         }
 
         SettingsCard(
-            title = "Experimental Flags Status", 
+            title = "Experimental Flags Status",
             subtitle = "Debug Overlay: ${if (remoteConfig.enableExperimentalDebugOverlay) "ENABLED" else "DISABLED"} | Columns: ${remoteConfig.gridColumnCount}"
         ) {}
 
