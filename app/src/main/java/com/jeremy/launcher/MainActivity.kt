@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -48,7 +50,8 @@ enum class AppScreen {
 data class RemoteConfig(
     val enableExperimentalDebugOverlay: Boolean,
     val customHeaderTitle: String,
-    val gridColumnCount: Int
+    val gridColumnCount: Int,
+    val announcementText: String
 )
 
 class MainActivity : ComponentActivity() {
@@ -62,7 +65,7 @@ class MainActivity : ComponentActivity() {
             var appsList by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
             var wallpaperUrl by remember { mutableStateOf<String?>(null) }
             var remoteConfig by remember { 
-                mutableStateOf(RemoteConfig(enableExperimentalDebugOverlay = false, customHeaderTitle = "Applications", gridColumnCount = 5)) 
+                mutableStateOf(RemoteConfig(false, "Applications", 5, "")) 
             }
             val scope = rememberCoroutineScope()
 
@@ -148,14 +151,13 @@ fun HomeScreen(
 
     LaunchedEffect(appsList) {
         if (appsList.isEmpty()) return@LaunchedEffect
-        var attempts = 0
-        while (attempts < 10) {
+        var success = false
+        while (!success && currentCoroutineContext().isActive) {
             try {
                 firstItemFocusRequester.requestFocus()
-                return@LaunchedEffect
-            } catch (e: IllegalStateException) {
-                attempts++
-                delay(50)
+                success = true
+            } catch (e: Exception) {
+                delay(100)
             }
         }
     }
@@ -393,7 +395,8 @@ suspend fun fetchRemoteConfig(): RemoteConfig? = withContext(Dispatchers.IO) {
         RemoteConfig(
             enableExperimentalDebugOverlay = json.optBoolean("enableExperimentalDebugOverlay", false),
             customHeaderTitle = json.optString("customHeaderTitle", "Applications"),
-            gridColumnCount = json.optInt("gridColumnCount", 5)
+            gridColumnCount = json.optInt("gridColumnCount", 5),
+            announcementText = json.optString("announcementText", "")
         )
     } catch (e: Exception) {
         null
